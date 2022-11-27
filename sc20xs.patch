@@ -1,0 +1,1262 @@
+******sc20xs.patch******
+test results
+1. 2
+2. 2
+3. 2
+4. 2
+5. 2
+6. 5
+~~~~~~coin.h~~~~~~
+#ifndef COIN_H
+#define COIN_H
+
+#include "thing.h"
+
+// a small coin that can be picked up.
+class Coin : public Thing
+{
+    string getName()
+    {
+        //I need to return the name:coin
+        return "coin";
+    }
+    Thing* clone(){
+        //I need to clone coin
+        return new Coin();
+    }
+};
+
+#endif // COIN_H
+~~~~~~rock.h~~~~~~
+#ifndef ROCK_H
+#define ROCK_H
+
+#include "blocks.h"
+#include "thing.h"
+#include <string>
+
+// a giant bolder that stops tom from walking through this location
+class Rock: public Thing, public Blocks
+{
+public:
+    Rock(){};
+    ~Rock(){};
+    string getName()
+    {
+        // return the name:rock
+        return "rock";
+    }
+    Thing* clone(){
+        //clone rock
+        return new Rock();
+    }
+};
+
+#endif // ROCK_H
+~~~~~~cave.cpp~~~~~~
+#include <stdexcept>
+#include <string>
+#include <iostream>
+#include <vector>
+#include <string>
+
+#include "cave.h"
+#include "rock.h"
+#include "thing.h"
+#include "location.h"
+#include "move.h"
+#include "place.h"
+#include "throw.h"
+#include "explode.h"
+
+
+using namespace std;
+
+Cave::Cave(int w, int h) : width(w), height(h) // width and height of the cave
+{
+//    if (width != 8 || height != 8) // be sure to update Cave::show() if you remove this.
+//        throw new logic_error("fixme: Cave needs to be fixed for non-standard sizes.");
+
+    // I need to control the size of the cave to avoid a too small map
+    if ( width < 5 || height < 5)
+        throw new logic_error("cavex too small for tom.");
+
+    // I need to create a map to store things
+    map = new Location**[width];
+
+    for (int x = 0; x < width; x++)
+    {
+        // I need to get a new location to column
+        Location** column = new Location*[height];
+        map[x] = column;
+        for (int y = 0; y < height; y++){
+            column[y] = new Location();
+        }
+
+    }
+
+    // create some rocks
+    for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+            if ( x == 0 || y == 0 || x == width-1 || y == height-1 )
+                 map[x][y] -> add( new Rock() );
+
+    tom = new Tom();
+    // add tom to the middle of the map
+    tom -> setLocation( this, width/2,height/2);
+}
+
+//  a copy constructor of cave
+Cave::Cave(const Cave& m)
+{
+    //I need to copy the width
+    width = m.width;
+    //I need to copy the height
+    height = m.height;
+    //I need to copy the map
+    map = new Location**[width];
+    //I need to assign the map
+    for (int x = 0; x < width; x++)
+    //from 0 to width
+    {
+        Location** column = new Location*[height];
+        map[x] = column;
+        // from 0 to height
+        for (int y = 0; y < height; y++)
+            column[y] = new Location(*m.map[x][y]);
+    }
+    //I need to copy the tom
+    tom = new Tom();
+    // I deliver three augments to setLocation function, using this function can set the position of tom in the map
+    tom->setLocation(this,m.tom->getX(),m.tom->getY());
+
+
+}
+
+// The Cave destructor
+Cave::~Cave()
+{
+    //I need to delete the map
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j < height; ++j) {
+            //I need to delete the inner part
+            delete(map[i][j]);
+        }
+        //I need to delete the outer part
+        delete(map[i]);
+    }
+    // fixme: I don't think this deletes all Locations and arrays declared in the constructor...
+    //I need to delete the whole part
+    delete[] map; // fixme: ...neither does this.
+
+}
+
+void Cave::command (string userCommand)
+{
+    // trigger Move() to let it move
+    if (Move().triggersOn(userCommand))
+        Move().fire(*this, userCommand);
+    // trigger Place() to let it place
+    else if (Place().triggersOn(userCommand))
+        Place().fire(*this, userCommand);
+    // trigger Throw() to let it throw
+    else if (Throw().triggersOn(userCommand))
+        Throw().fire(*this, userCommand);
+    // trigger Explode() to let it explode
+    else if (Explode().triggersOn(userCommand))
+        Explode().fire(*this, userCommand);
+    else
+        // trigger nothing if some error input
+        cerr << "tom doesn't know how to "+userCommand << endl;;
+}
+
+void Cave::show()
+{
+    vector<Thing*>* thingsWithTom = map[tom -> getX()][tom -> getY()] -> getThings();
+
+    for (int y = 0; y < height; y++)
+    { // for all rows
+        for (int x = 0; x < width; x++) // for all columns
+            cout << map[x][y] -> show(); // output whatever we find there
+
+        cout << "  "; // list the things at this location
+        if (y <  (int) thingsWithTom -> size())
+            cout << (*thingsWithTom)[y] -> getName();
+
+        cout << endl;
+    }
+
+    cout << endl;
+}
+// a copy assignment operator
+Cave& Cave::operator=(const Cave& c)
+{
+    // copy the width
+    width = c.width;
+    // copy the height
+    height = c.height;
+    //I need to copy the map
+    map = new Location**[width];
+    for (int x = 0; x < width; x++)
+    {
+        //I need to copy a new location to column
+        Location** column = new Location*[height];
+        map[x] = column;
+        for (int y = 0; y < height; y++)
+            column[y] = new Location(*c.map[x][y]);
+    }
+    // I need to copy the tom
+    tom = new Tom();
+    // I deliver three augments to setLocation function, using this function can set the position of tom in the map
+    tom->setLocation(this,c.tom->getX(),c.tom->getY());
+    return *this;
+}
+~~~~~~test.cpp~~~~~~
+/***
+ * Do not change this file
+ *
+ * A script very much like this will be used to grade your code.
+ *
+ * I may add additional checks to ensure that no cheating takes place!
+ *
+ */
+
+#include <iostream>
+#include <fstream>
+#include <stdexcept>
+#include <sstream>
+#include<iostream>
+#include<string>
+#include <dirent.h> // this might be tricky, but mostly there for gnu compilers.
+
+#include "cave.h"
+#include "coin.h"
+#include "location.h"
+#include "mushroom.h"
+
+
+using namespace std;
+
+int Location::count;
+int Thing::count;
+
+int test1() {
+
+    Cave c(8,8);
+    c.getTom()->setLocation(&c, 5, 5);
+
+    bool goodA = true;
+
+    // let's walk in a circle and check we get the results we expect
+    c.command("move west");
+    goodA &= (c.getTom()->getX() == 4);
+
+    c.command("move north");
+    goodA &= (c.getTom()->getY() == 4);
+
+    c.command("move east");
+    goodA &= (c.getTom()->getX() == 5);
+
+    c.command("move south");
+    goodA &= (c.getTom()->getY() == 5);
+
+    // walk into wall to east
+    for (int i = 0; i < 10; i++)
+        c.command("move east");
+
+    bool goodB = true;
+    goodB &= (c.getTom()->getX() == 6);
+    goodB &= (c.getTom()->getY() == 5);
+
+    return (goodA ? 1 : 0) + (goodB ? 1 : 0);
+}
+
+
+int test2() {
+
+    bool goodA = true, goodB = true;
+
+    try {
+
+        for (int i = 5; i < 20; i+=2)
+            for (int j = 5; j < 27; j+=3) {
+                Cave c(i,j);
+
+                goodA &= c.getWidth() == i;
+                goodA &= c.getHeight() == j;
+
+                for (int x = 0; x < i; x++)
+                    for (int y = 0; y < j; y++)
+                        if (x > 0 && x < i-1 && y> 0 && y < j-1)
+                            goodB &= !c.getMap()[x][y]->isBlocking();
+                        else
+                            goodB &= c.getMap()[x][y]->isBlocking();
+            }
+
+    }
+    catch (...) // an errors (including logic_error) fall through here
+    {
+        goodA = goodB = false;
+    }
+    return (goodA ? 1 : 0) + (goodB ? 1 : 0);
+}
+
+int test3() {
+
+    Location::count = 0; // reset the counters in location and thing
+    Thing::count = 0;
+
+    bool goodA = true;
+    {
+        int x = 8, y= 8;
+
+        Cave c(x, y);
+
+        goodA &= Location::count == x*y;
+    }
+
+    goodA &= Location::count == 0;
+    goodA &= Thing::count == 0;
+
+    return goodA ? 2 : 0;
+}
+
+void test4CheckPointers(Cave *a, Cave &b, bool& goodA) {
+
+    goodA &= b.getMap() != a -> getMap(); // check that we created a new map
+    goodA &= b.getMap()[0][0] != a -> getMap()[0][0]; // has the vector in Location been copied?
+    goodA &= b.getMap()[0][0]->getThings()->at(0) != a -> getMap()[0][0]->getThings()->at(0); // has the Rock been copied
+}
+
+int test4() {
+
+    bool goodA = true, goodB = true;
+
+    Cave *a = new Cave(8, 8); // so we don't destroy any (accidently) shallow copied copies twice
+    Cave b(*a);
+
+    test4CheckPointers(a, b, goodA);
+
+    Cave *c = new Cave(8,8);
+    Cave d(8,8);
+    d = *c;
+
+    test4CheckPointers(c, d, goodB);
+
+    return (goodA ? 1 : 0) + (goodB ? 1 : 0);
+}
+
+bool hasCoin (Cave &c, int x, int y) {
+
+    for (auto t : *c.getMap()[x][y]->getThings())
+        if ( dynamic_cast<Coin*>(t) )
+            return true;
+
+    return false;
+}
+
+bool hasMushroom (Cave &c, int x, int y) {
+
+    for (auto t : *c.getMap()[x][y]->getThings())
+        if ( dynamic_cast<Mushroom*>(t) )
+            return true;
+
+    return false;
+}
+
+int test5() {
+
+    bool goodA = true, goodB = true;
+
+    Cave c(8,8);
+    c.getTom()->setLocation(&c, 5, 5);
+    c.command("throw coin north");
+    goodA &= hasCoin(c, 5,4);
+
+    c.command("throw coin east");
+    goodA &= hasCoin(c, 6,5);
+
+    c.getTom()->setLocation(&c, 6,6);
+
+    c.command("throw coin west");
+    goodA &= hasCoin(c, 5,6);
+
+    c.command("throw coin east");
+    goodB &= !hasCoin(c, 7,6); // can't throw - rock
+    goodB &= goodA; // no marks for rock-blocking if throwing didn't work
+
+    return (goodA ? 1 : 0) + (goodB ? 1 : 0);
+}
+
+
+bool hasBomb (Cave &c, int x, int y) {
+
+    for (auto t : *c.getMap()[x][y]->getThings())
+        if ( t->getName().compare("bomb") == 0 )
+            return true;
+
+    return false;
+}
+
+int countBombs(Cave *c) {
+    int count = 0;
+    for (int x = 0; x < c->getWidth(); x++)
+        for (int y = 0; y < c->getHeight(); y++)
+            if (hasBomb(*c, x, y))
+                count++;
+
+    return count;
+}
+
+int test6() {
+
+    bool goodA = true, goodB = true, goodC = true;
+
+    Cave c(8,8);
+
+
+    goodA &= countBombs(&c) == 0;
+
+    const int bombCount = 8;
+    int bombs[bombCount][2] = {{1,1},{2,2},{1,7},{6,6},{5,5},{6,5},{5,6},{7,5}};
+
+    for (int x = 0; x < bombCount; x++) {
+        c.getTom()->setLocation(&c,bombs[x][0],bombs[x][1]);
+        c.command("place bomb");
+    }
+
+    goodA &= countBombs(&c) == bombCount;
+
+    c.getTom()->setLocation(&c,5,5);
+    c.command("place mushroom");
+    c.getTom()->setLocation(&c,4,5);
+    c.command("place mushroom");
+
+    c.getTom()->setLocation(&c,1,2);
+    c.command("explode");
+
+    goodB &= countBombs(&c) == 6;
+
+    c.getTom()->setLocation(&c,5,4);
+    c.command("explode");
+    goodB &= countBombs(&c) == 1;
+
+    goodC &= !c.getMap()[7][5]->isBlocking(); // a bomb inside the rock should destroy the rock
+
+
+    goodC &=  c.getMap()[7][6]->isBlocking(); // other rocks remain untouched
+
+    goodC &= !hasMushroom (c, 5,5); // mushroom should be destroyed
+
+    goodC &=  hasMushroom (c, 4,5); // mushroom should not explode
+
+
+
+    c.command("place bomb");
+
+    return
+    (goodA ? 1 : 0)+
+    (goodB ? 3 : 0)+
+    (goodC ? 1 : 0);
+}
+
+bool endsWith(string const & value, string const & ending) {
+
+    if (ending.size() > value.size()) return false;
+    return equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+bool isEmpty(const string& file)  { // https://stackoverflow.com/questions/2424138/portable-way-to-get-file-size-in-c-c
+
+    ifstream ifile(file);
+    ifile.seekg(0, ios_base::end);
+    return ifile.tellg() == 0;
+}
+
+void test() {
+
+    cerr.setstate(ios_base::failbit); // no error output while testing please!
+
+    cout << "Enter folder containing all cpp source files (or enter to only run tests):";
+    string folder;
+    getline(cin, folder); // comment out this line to test quickly
+
+    stringstream buffer;
+    string username = "";
+
+    if (folder.length() > 0) {
+        cout << endl <<"Enter leeds username (sc19xxx):";
+        getline(cin, username);
+        username += ".patch";
+
+        if (auto dir = opendir(folder.c_str())) {
+            while (auto f = readdir(dir)) {
+                if (!f->d_name || f->d_name[0] == '.')
+                    continue;
+
+                string name = string (f->d_name);
+                if (endsWith(name, ".cpp") || endsWith(name, ".pro") || endsWith(name, ".h") ) {
+                    printf("Adding file: %s\n", f->d_name);
+
+                    string fileName = folder+"/"+name;
+
+                    if (isEmpty(fileName)) {
+                        cout <<"...warning - empty file, please remove" << endl;
+                        continue;
+                    }
+
+                    ifstream file(fileName );
+                    stringstream tmp;
+
+                    buffer << "~~~~~~"<<name<<"~~~~~~\n";
+                    buffer << file.rdbuf();
+                }
+            }
+            closedir(dir);
+        }
+        else {
+            cout <<"folder not found: " << folder << endl;
+            return;
+        }
+    }
+
+    stringstream testResults;
+
+    testResults << "test results" << endl;
+    testResults << "1. " << test1() << endl;
+    testResults << "2. " << test2() << endl;
+    testResults << "3. " << test3() << endl;
+    testResults << "4. " << test4() << endl;
+    testResults << "5. " << test5() << endl;
+    testResults << "6. " << test6() << endl;
+
+    cout << testResults.str();
+
+    if (folder.length() > 0) {
+        ofstream outfile;
+        outfile.open(folder+"/"+username, ios::out | ios::trunc );
+        outfile << "******" << username << "******\n";
+        outfile << testResults.str();
+        outfile << buffer.str();
+        outfile.close();
+    }
+}
+~~~~~~location.cpp~~~~~~
+
+#include <algorithm>
+
+#include "blocks.h"
+#include "location.h"
+#include "tom.h"
+
+using namespace std;
+
+//  a copy constructor of Location
+Location::Location(const Location &a)
+{
+    //progressive increase of count
+    count++;
+    for(Thing *thing :a.things){
+        things.push_back(thing->clone());
+    }
+
+}
+
+void Location::add(Thing *t)
+{
+    things.push_back( t );
+}
+
+void Location::remove(Thing *t)
+{
+    // note we don't free the memory here
+    things.erase(std::remove(things.begin(), things.end(), t), things.end());
+}
+
+
+char Location::show() {
+
+    int junk = 0, blocking = 0, tom = 0;
+
+    // count properties of things at this location
+    for (Thing* t : things)
+    {
+        if (dynamic_cast<Blocks*>(t) ) // is t subclass of Blocks?
+            blocking++;
+        else if (dynamic_cast<Tom*> (t) != NULL ) // is t Tom?
+            tom++;
+        else
+            junk++; // otherwise just junk
+    }
+
+    // return a character based on the properties
+    if (blocking) // remember that
+        return 'X';
+    else if (junk > 0)
+    {
+        if (tom)
+            return 'L';
+        else
+            return '_';
+    }
+    else if (tom)
+        return '|';
+    else
+        return '.';
+}
+
+bool Location::isBlocking() // does this location block tom's travels?
+{
+    int blocking = 0;
+
+    for (Thing * t : things)
+        if ( dynamic_cast<Blocks*>(t) )// is t subclass of Blocks?
+            blocking++;
+
+    return blocking; // 0 means false, otherwise true
+}
+~~~~~~tom.h~~~~~~
+//
+// Do not change this file
+//
+
+#ifndef TOM_H
+#define TOM_H
+
+#include "cave.h"
+#include "thing.h"
+
+class Cave; // forward reference because the tom class needs to know about the cave class
+class Tom : public Thing
+{
+public:
+    Tom(){}
+    ~Tom(){}
+    string getName()
+    {
+        return "tom";
+    }
+    void setLocation(Cave* c, int x, int y);
+    int getX()
+    {
+        return location[0];
+    }
+    int getY()
+    {
+        return location[1];
+    }
+private:
+    int location[2] = {-1,-1}; // fixed length array, so we can allocate automatically...
+                               // ...note invalid location (-1,-1) before setLocation call.
+};
+
+#endif // TOM_H
+~~~~~~tom.cpp~~~~~~
+//
+// Do not change this file
+//
+
+#include "tom.h"
+#include "cave.h"
+
+void Tom::setLocation(Cave* c, int new_x, int new_y)
+{
+    if (location[0] >= 0 && location[1] >= 0)  // if we've set the location before, remove tom from old position
+        c -> getMap()[location[0]][location[1]]->remove(this);
+
+    location[0] = new_x;
+    location[1] = new_y;
+
+    c -> getMap()[location[0]][location[1]]->add(this);
+}
+~~~~~~blocks.h~~~~~~
+#ifndef BLOCKS_H
+#define BLOCKS_H
+
+// This class marks as object as blocking tom from walking here
+class Blocks{};
+
+#endif // BLOCKS_H
+~~~~~~throw.cpp~~~~~~
+#include "throw.h"
+#include "thing.h"
+using namespace std;
+
+void Throw::fire(Cave& c, string userCommand)
+{
+    string s = tail(userCommand);
+    int newTomX = c.getTom()->getX(),  newTomY = c.getTom()->getY();
+    // check the direction and object
+    if (s == "coin west" || s == "mushroom west") {
+        // if throw west of coin or mushroom, move west
+        newTomX--;
+    }
+    else if  (s == "coin north" || s == "mushroom north") {
+        // if throw north of coin or mushroom, move north
+            newTomY--;
+        }
+    else if  (s == "coin east" || s == "mushroom east") {
+        // if throw east of coin or mushroom, move east
+        newTomX++;
+    }
+    else if  (s == "coin south" || s == "mushroom south") {
+        // if throw south of coin or mushroom, move south
+        newTomY++;
+    }
+    else
+        {
+        //other error information
+            cerr << "tom can't \"" << s << "\"" << endl;
+            return;
+        }
+    if (newTomX < 0 || newTomY < 0 || newTomX >= c.getWidth() ||newTomY >= c.getHeight())
+    {
+        //I need to check the boundary
+        cerr << "can't walk into the void" << endl;
+        return;
+    }
+    else if ( c.getMap()[newTomX][newTomY] -> isBlocking() )
+    {
+        //I need to check the blocking
+        cerr << "something is blocking the way" << endl;
+        return;
+    }
+
+    Location* loc = c.getMap()[newTomX][newTomY];
+    //I need to check whether s[0,4]==coin
+    if (s.substr(0, 4).compare("coin")==0)
+        loc ->add(new Coin());
+    else if (s.substr(0, 8).compare("mushroom")==0)
+        //I need to check whether s[0,8]==mushroom
+        loc ->add(new Mushroom());
+    else
+        //an error
+        cerr << "I don't know how to place a " << userCommand << endl;
+}
+~~~~~~bomb.h~~~~~~
+#ifndef BOMB_H
+#define BOMB_H
+
+#include "thing.h"
+
+// a small glowing bomb on the ground, found wherever adventurers wander. Can be picked up.
+class Bomb : public Thing
+{
+
+    string getName()
+    {
+        // return the name:bomb
+        return "bomb";
+    }
+    Thing* clone(){
+        // clone bomb
+        return new Bomb();
+    }
+};
+
+#endif // BOMB_H
+
+
+~~~~~~thing.h~~~~~~
+//
+// Do not change this file
+//
+
+#ifndef THING_H
+#define THING_H
+
+#include <vector>
+#include <string>
+using namespace std;
+
+// the superclass of all things in the cave.
+class Thing
+{
+public:
+    Thing()
+    {
+        ++count;
+    };
+    virtual ~Thing()
+    {
+        --count;
+    };
+    virtual string getName() =0;
+    virtual Thing* clone()
+    {
+        return NULL; // this could be overridden by subclasses.
+    }
+    static int count; // a count of the number of locations allocated/deleted
+};
+
+#endif // THING_H
+~~~~~~move.cpp~~~~~~
+#include "move.h"
+
+void Move::fire(Cave& c, string userCommand)
+{
+    string s = tail(userCommand);
+
+    int newTomX = c.getTom()->getX(),  newTomY = c.getTom()->getY();
+    // check the direction
+    if (s == "west")
+        // point move west
+        newTomX--;
+    else if  (s == "north")
+        // point move north
+        newTomY--;
+    else if  (s == "east")
+        // point move east
+        newTomX++;
+    else if  (s == "south")
+        // point move south
+        newTomY++;
+    else
+    {
+        // error input
+        cerr << "tom can't \"" << s << "\"" << endl;
+        return;
+    }
+
+
+    if (newTomX < 0 || newTomY < 0 || newTomX >= c.getWidth() ||newTomY >= c.getHeight())
+    {
+        // check the boundary
+        cerr << "can't walk into the void" << endl;
+        return;
+    }
+    else if ( c.getMap()[newTomX][newTomY] -> isBlocking() )
+    {
+        // check the blocking
+        cerr << "something is blocking the way" << endl;
+        return;
+    }
+    else if (newTomX != c.getTom()->getX() || newTomY != c.getTom()->getY())
+    {
+        //move successfully
+        c.getTom() -> setLocation (&c, newTomX, newTomY);
+        cerr << "tom shuffles through the dank cave" << endl;
+        return;
+    }
+}
+~~~~~~CavePlusPlus.pro~~~~~~
+
+CONFIG += c++11 console
+#CONFIG -= app_bundle
+QT-= gui
+
+# You can make your code fail to compile if it uses deprecated APIs.
+# In order to do so, uncomment the following line.
+#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+
+SOURCES += \
+        tom.cpp \
+        cave.cpp \
+        location.cpp \
+        main.cpp \
+        move.cpp \
+        place.cpp \
+        explode.cpp \
+        throw.cpp
+
+# Default rules for deployment.
+qnx: target.path = /tmp/$${TARGET}/bin
+else: unix:!android: target.path = /opt/$${TARGET}/bin
+!isEmpty(target.path): INSTALLS += target
+
+HEADERS += \
+    blocks.h \
+    cave.h \
+    coin.h \
+    command.h \
+    location.h \
+    move.h \
+    mushroom.h \
+    place.h \
+    placeable.h \
+    rock.h \
+    thing.h \
+    tom.h \
+    explode.h \
+    throw.h \
+    bomb.h
+~~~~~~mushroom.h~~~~~~
+#ifndef MUSHROOM_H
+#define MUSHROOM_H
+
+#include "thing.h"
+
+// a small glowing mushroom on the ground, found wherever adventurers wander. Can be picked up.
+class Mushroom : public Thing
+{
+
+    string getName()
+    {
+        // return the name:mushroom
+        return "mushroom";
+    }
+    Thing* clone(){
+        //clone mushroom
+        return new Mushroom();
+    }
+
+};
+
+#endif // MUSHROOM_H
+~~~~~~explode.h~~~~~~
+#ifndef EXPLODE_H
+#define EXPLODE_H
+
+#include "command.h"
+#include "mushroom.h"
+#include "rock.h"
+#include "bomb.h"
+#include "location.h"
+#include "coin.h"
+#include <iostream>
+
+using namespace std;
+// check if explode
+class Explode : public Command
+{
+public:
+    Explode() : Command("explode") {}; // command:explode
+    // start to fire
+    void fire(Cave& c, string userCommand);
+
+private:
+    //this is the recursion
+    void start(Cave& c, int x, int y);
+};
+#endif // EXPLODE_H
+~~~~~~explode.cpp~~~~~~
+#include "thing.h"
+#include "explode.h"
+
+//used to move east,south,west and north
+const int dx[4] = {1,0,0,-1};
+const int dy[4] = {0,1,-1,0};
+
+void Explode::fire(Cave& c, string userCommand)
+{
+    // get x of Tom
+    int newTomX = c.getTom()->getX();
+    // get y of Tom
+    int newTomY = c.getTom()->getY();
+    //used to check the position of Tom
+    int status = 0;
+    // get the map
+    Location*** map = c.getMap();
+    auto thingsWithTom1 = map[newTomX][newTomY]->getThings();
+    //get the size of this point
+    int a = (int)thingsWithTom1 -> size();
+    for (int i = 0; i < a; ++i) {
+        // check the bomb
+        if((*thingsWithTom1)[i]->getName() == "bomb"){
+            for (int j = 0; j < a; ++j) {
+                // check the tom
+                if((*thingsWithTom1)[status]->getName() != "tom"){
+                    //not tom and delete the element
+                    map[newTomX][newTomY]->remove((*thingsWithTom1)[status]);
+                }else{
+                    //if it is tom, change the number of status
+                    status=1;
+                }
+            }
+        }
+    }
+    // start to recursion
+    for (int i = 0; i < 4; i++) {
+        // used to move east,south,west and north
+        int mx = newTomX+ dx[i], my = newTomY + dy[i];
+        start(c,mx,my);
+    }
+}
+
+void Explode::start(Cave& c, int new_x, int new_y){
+    // check the position and if it crosses the boundary, exit
+    if(new_x<0||new_x>=c.getWidth()||new_y<0||new_y>=c.getHeight()){
+        return;
+    }
+    // check if it has bomb
+    bool f = false;
+    for(int i = 0; i < c.getMap()[new_x][new_y]->getThings()->size();i++)
+    if((*c.getMap()[new_x][new_y]->getThings())[i]->getName() == "bomb")
+    {
+        // it has bomb
+        f = true;
+    }
+    if(!f)
+        // it doesn't have bomb and exit
+        return ;
+    int status = 0;
+    Location*** map = c.getMap();
+    // get the contents of this point
+    auto thingsWithTom1 = map[new_x][new_y]->getThings();
+    int a = (int)thingsWithTom1 -> size();
+            for (int j = 0; j < a; ++j) {
+                // check the tom
+                if((*thingsWithTom1)[status]->getName() != "tom"){
+                    //not tom and delete the element
+                    map[new_x][new_y]->remove((*thingsWithTom1)[status]);
+                }else{
+                    //if it is tom, change the number of status
+                    status=1;
+                }
+            }
+     // the change of the position
+    for (int i = 0; i < 4; i++) {
+        // used to move east,south,west and north
+        int mx = new_x + dx[i], my = new_y + dy[i];
+        //start to recursion
+        start(c,mx,my);
+    }
+
+}
+~~~~~~place.cpp~~~~~~
+#include "place.h"
+#include "thing.h"
+
+void Place::fire(Cave& c, string userCommand)
+{
+    string s = tail(userCommand);
+    Location* loc = c.getMap()[c.getTom()->getX()][c.getTom()->getY()];
+
+    if (s.compare("coin")==0)
+        //if s==coin I need to add a coin
+        loc ->add(new Coin());
+    else if (s.compare("mushroom")==0)
+        //if s==coin I need to add a mushroom
+        loc ->add(new Mushroom());
+    else if (s.compare("bomb")==0)
+        //if s==bomb I need to add a bomb
+        loc ->add(new Bomb());
+    else
+        //other error input
+        cerr << "I don't know how to place a " << userCommand << endl;
+}
+~~~~~~location.h~~~~~~
+#ifndef LOCATION_H
+#define LOCATION_H
+
+
+#include <vector>
+
+#include "thing.h"
+
+class Location
+{
+public:
+    Location()
+    {
+        ++count;
+    }
+    // The Location destructor
+    ~Location()
+    {
+        for (auto t : things)
+            delete(t);
+        --count;
+    }
+    Location(const Location& a);
+    void add(Thing *t);
+    void remove(Thing *t);
+    char show();
+    bool isBlocking();
+    vector<Thing*>* getThings() { return &things; }
+    static int count; // a count of the number of locations allocated/deleted
+
+private:
+
+    vector<Thing*> things;
+
+};
+
+
+
+#endif // LOCATION_H
+~~~~~~command.h~~~~~~
+#ifndef COMMAND_H
+#define COMMAND_H
+
+#include "cave.h"
+
+#include <string>
+
+using namespace std;
+
+// superclass of all user commands.
+class Command {
+
+public:
+    Command(string triggerWord) : trigger(triggerWord) {}
+
+    virtual bool triggersOn (string userCommand)
+    {
+        string userTrigger = userCommand;
+        int index = userCommand.find(' ');
+        if (index > 0)
+                userTrigger = userCommand.substr(0, userCommand.find(' '));
+        return trigger.compare(userTrigger) == 0;
+    }
+
+    virtual void fire(Cave& c, string arguments) =0;
+
+protected:
+    string tail(string userCommand) {
+
+        int pos = userCommand.find(' ');
+        if (pos >= 0)
+            return userCommand.substr(userCommand.find(' ')+1, userCommand.length());
+        else
+            return "";
+    }
+
+private:
+    string trigger;
+};
+
+#endif // COMMAND_H
+~~~~~~move.h~~~~~~
+#ifndef MOVE_H
+#define MOVE_H
+
+#include "cave.h"
+#include "command.h"
+
+#include <string>
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+
+// a command to move tom around the cave.
+class Move : public Command
+{
+public:
+    Move() : Command("move") {};//command:move
+    void fire(Cave& c, string userCommand); //trigger move
+};
+
+#endif // MOVE_H
+~~~~~~place.h~~~~~~
+#ifndef PLACE_H
+#define PLACE_H
+
+#include "coin.h"
+#include "command.h"
+#include "mushroom.h"
+#include "rock.h"
+#include "bomb.h"
+#include <iostream>
+
+using namespace std;
+
+class Place : public Command
+{
+public:
+    Place() : Command("place") {}; //command: place
+    void fire(Cave& c, string userCommand); //trigger place
+};
+#endif // PLACE_H
+~~~~~~cave.h~~~~~~
+#ifndef CAVE_H
+#define CAVE_H
+
+#include "location.h"
+#include "tom.h"
+
+using namespace std;
+
+class Tom; // forward reference
+
+// A cave which contains everything, including tom.
+class Cave
+{
+public:
+    Cave(){};
+    Cave(int width, int height);
+    ~Cave();
+    Cave(const Cave& m); //this is a copy constructor of cave
+    Location*** getMap() {return map;}
+    void command (string s);
+    void show();
+    Tom *getTom() {return tom;}
+    int getWidth() {return width;}
+    int getHeight() {return height;}
+    Cave& operator=(const Cave& c); // this is a copy assignment operator
+private:
+    int width, height;
+    Tom *tom;
+    Location*** map;
+};
+
+#endif // CAVE_H
+~~~~~~throw.h~~~~~~
+#ifndef THROW_H
+#define THROW_H
+
+#include "coin.h"
+#include "command.h"
+#include "mushroom.h"
+#include "rock.h"
+#include <iostream>
+
+using namespace std;
+
+class Throw : public Command
+{
+public:
+    Throw() : Command("throw") {}; //the command:throw
+    void fire(Cave& c, string userCommand); //I need to trigger throw
+};
+#endif // THROW_H
+~~~~~~main.cpp~~~~~~
+//
+// Do not change this file - but you might edit the arguments passed to main:
+//  - Projects (spanner on right)
+//  - Under "Build and Run", select "Run" (small green arrow)
+//  - Edit "Command line arguments" (main panel)
+//
+// v1: initial release
+// v2: removed std:: from some strings & allowed students to edit the Location class
+//
+
+#include <string>
+#include <iostream>
+
+#include "cave.h"
+#include "test.cpp"
+
+using namespace std;
+
+
+int main(int argc, char** argv) {
+
+    int width = 8, height = 8; // provided code only works for these values(!)
+
+    if (argc == 3) {
+        width  = stoi (argv[1]);
+        height = stoi (argv[2]);
+    }
+
+    if (argc != 2) {
+
+        Cave c(width, height);
+        Cave d(c);
+        string input;
+        while (true) {
+
+            c.show();
+
+            cout << ">";
+            getline(cin, input);
+
+            if (input.compare("exit") == 0)
+                break;
+            c.command(input);
+        }
+    }
+    else test();
+}
